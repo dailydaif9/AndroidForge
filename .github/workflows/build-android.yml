@@ -147,7 +147,39 @@ jobs:
       - name: Extract source ZIP
         id: extract
         run: python3 scripts/extract_zip.py --zip "${{ steps.acquire.outputs.zip_path }}"
+      # Fix MainActivity duplicate file and Toast context
+      - name: Fix MainActivity source
+        run: |
+          ROOT="${{ steps.extract.outputs.project_root }}"
 
+          echo "Checking MainActivity files..."
+
+          find "$ROOT" -type f -name "MainActivity_old.java" -delete
+
+          python3 - "$ROOT" <<'PY'
+          import sys
+          import re
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+
+          for f in root.rglob("MainActivity.java"):
+              text = f.read_text(encoding="utf-8")
+              fixed = re.sub(
+                  r'(Toast\.makeText\s*\()\s*this\s*,',
+                  r'\1MainActivity.this,',
+                  text
+              )
+
+              if fixed != text:
+                  f.write_text(fixed, encoding="utf-8")
+                  print("Fixed Toast in:", f)
+
+              else:
+                  print("Toast already correct:", f)
+
+          print("MainActivity cleanup completed.")
+          PY
       # ---------------------------------------------------------------------
       # Step 3: Detect project (writes detection.json)
       # ---------------------------------------------------------------------
